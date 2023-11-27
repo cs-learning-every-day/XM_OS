@@ -6,13 +6,9 @@
 
 ```bash
 cargo build
-
 cargo install bootimage
-rustup component add llvm-tools-preview
+cargo bootimage
 
-qemu-system-x86_64 -drive format=raw,file=target/x86_64-xm_os/debug/bootimage-xm_os.bin
-
-or
-
+# need QEMU
 cargo run
 ```
