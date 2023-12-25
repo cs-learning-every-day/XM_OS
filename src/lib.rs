@@ -11,8 +11,6 @@ pub mod serial;
 pub mod vga_buffer;
 use core::panic::PanicInfo;
 
-use x86_64::instructions::hlt;
-
 pub fn hlt_loop() -> ! {
     loop {
         x86_64::instructions::hlt();
