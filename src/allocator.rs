@@ -1,5 +1,4 @@
 use core::{alloc::GlobalAlloc, ptr::null_mut};
-use linked_list_allocator::LockedHeap;
 
 use x86_64::{
     structures::paging::{
@@ -8,13 +7,36 @@ use x86_64::{
     VirtAddr,
 };
 
+use self::fixed_size_block::FixedSizeBlockAllocator;
+
+pub mod bump;
+pub mod fixed_size_block;
+pub mod linked_list;
+
 pub struct Dummy;
 
 #[global_allocator]
-static ALLOCATOR: LockedHeap = LockedHeap::empty();
+// static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
 pub const HEAP_START: usize = 0x_4444_4444_0000;
 pub const HEAP_SIZE: usize = 100 * 1024; // 100Kib
+
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner),
+        }
+    }
+
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
 
 unsafe impl GlobalAlloc for Dummy {
     unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
@@ -24,6 +46,22 @@ unsafe impl GlobalAlloc for Dummy {
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
         panic!("dealloc should be never called")
     }
+}
+
+// fn align_up(addr: usize, align: usize) -> usize {
+//     let remainder = addr & align;
+//     if remainder == 0 {
+//         addr
+//     } else {
+//         addr - remainder + align
+//     }
+// }
+
+/// Align the given address `addr` upwards to alignment `align`.
+///
+/// Requires that `align` is a power of two.
+fn align_up(addr: usize, align: usize) -> usize {
+    (addr + align - 1) & !(align - 1)
 }
 
 pub fn init_heap(
